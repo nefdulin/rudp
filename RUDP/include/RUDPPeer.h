@@ -2,8 +2,7 @@
 
 #include <iostream>
 #include <queue>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
+#include "RUDP.h"
 #include "RUDPHost.h"
 
 class RUDPHost;
@@ -11,13 +10,13 @@ class RUDPHost;
 class RUDPPeer
 {
 public:
-	RUDPPeer(RUDPHost* host, sockaddr_in address)
+	RUDPPeer(RUDPHost* host, RUDPAddress address)
 	{
 		_host = host;
 		_address = address;
 
 		_outgoingCommands = new std::queue<RUDPOutgoingCommand*>();
-		_sentReliableCommands = new std::vector<RUDPOutgoingCommand*>();
+        _sentReliableCommands = new std::vector<RUDPOutgoingCommand *>();
 		_acknowledgements = new std::vector<RUDPAcknowledgement*>();
 
 		_packetsLost = 0;
@@ -27,7 +26,7 @@ public:
 		_roundTripTime = RUDP_PEER_DEFAULT_ROUND_TRIP_TIME;
 	}
 
-	const sockaddr_in& GetAddress() { return _address; }
+    RUDPAddress& GetAddress() { return _address; }
 
 	const u_short GetSequenceNumber() { return _reliableSequenceNumber; }
 	void SetSequenceNumber(u_short newSequenceNumber) { _reliableSequenceNumber = newSequenceNumber; }
@@ -45,7 +44,7 @@ public:
 	const size_t GetRTT() { return _roundTripTime; }
 	void SetRTT(size_t newRTT) { _roundTripTime = newRTT; }
 
-	const size_t GetPacketsLost() { return _packetsLost; }
+	size_t GetPacketsLost() const { return _packetsLost; }
 	void SetPacketsLost(size_t newPacketsLost) { _packetsLost = newPacketsLost; }
 
 	const size_t GetLastReceiveTime() { return _lastReceiveTime; }
@@ -54,7 +53,7 @@ public:
 private:
 	RUDPPeerState _state;
 	RUDPHost* _host;
-	sockaddr_in _address;
+	RUDPAddress _address;
 
 	std::queue<RUDPOutgoingCommand*>* _outgoingCommands;
 	// Commands that are sent and waiting for acks

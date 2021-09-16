@@ -6,8 +6,8 @@ include_directories (${RUDP_INCLUDE_DIR})
 
 add_executable (Server "main.cpp")
 
-set (RUDP_LIBRARY ${CMAKE_BINARY_DIR}/RUDP/RUDPLib.lib)
+message ("msesage is: " ${RUDP_LIBRARY})
+
+set (RUDP_LIBRARY ${CMAKE_BINARY_DIR}/RUDP/libRUDP.dylib)
 
 target_link_libraries (Server ${RUDP_LIBRARY})
-
-message ("msesage is: " ${RUDP_LIBRARY})

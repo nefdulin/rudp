@@ -1,6 +1,5 @@
 #pragma once
-#include <WinSock2.h>
-#include <WS2tcpip.h>
+#include "RUDP.h"
 #include "RUDPPacket.h"
 
 #define RUDP_DEBUG
@@ -8,12 +7,6 @@
 enum
 {
 	RUDP_PEER_DEFAULT_ROUND_TRIP_TIME = 500
-};
-
-struct RUDPBuffer
-{
-	size_t length;
-	void* data;
 };
 
 enum RUDPProtocolCommand

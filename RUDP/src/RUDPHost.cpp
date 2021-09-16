@@ -1,26 +1,33 @@
 #include "../include/RUDPHost.h"
-#include "../include/UDPSocket.h"
+#include "../include/RUDPUnix.h"
 #include <stdlib.h>
 #include <time.h>
 #include "../include/RUDPTime.h"
 
 RUDPHost::RUDPHost(bool isServer, u_short port)
 {
-	_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	_socket = RUDP::SocketCreate();
 
-	if (_socket == SOCKET_ERROR)
+	if (_socket == -1)
 	{
-		std::cout << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
+		std::cout << "Socket creation failed with error: " << errno << std::endl;
 		return;
 	}
 
+    sockaddr_in sin;
+
+    memset(&sin, 0, sizeof(sockaddr_in));
+
 	if (isServer)
 	{
-		_address.sin_family = AF_INET;
-		_address.sin_addr.s_addr = INADDR_ANY;
-		_address.sin_port = htons(port);
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = INADDR_ANY;
+		sin.sin_port = htons(port);
 
-		if (bind(_socket, (sockaddr*)&_address, sizeof(sockaddr_in)) == SOCKET_ERROR)
+        _address.port  = port;
+        _address.host = sin.sin_addr.s_addr;
+
+		if (bind(_socket, (sockaddr*)&sin, sizeof(sockaddr_in)) == -1)
 		{
 			std::cout << "Error on port binding! " << std::endl;
 			return;
@@ -32,11 +39,11 @@ RUDPHost::RUDPHost(bool isServer, u_short port)
 #ifdef RUDP_DEBUG
 	else
 	{
-		_address.sin_family = AF_INET;
-		_address.sin_addr.s_addr = INADDR_ANY;
-		_address.sin_port = htons(7776);
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = INADDR_ANY;
+		sin.sin_port = htons(7776);
 
-		if (bind(_socket, (sockaddr*)&_address, sizeof(sockaddr_in)) == SOCKET_ERROR)
+		if (bind(_socket, (sockaddr*)&_address, sizeof(sockaddr_in)) == -1)
 		{
 			std::cout << "Error on client port binding" << std::endl;
 			return;
@@ -47,7 +54,7 @@ RUDPHost::RUDPHost(bool isServer, u_short port)
 #endif
 
 	u_long mode = 1;
-	ioctlsocket(_socket, FIONBIO, &mode);
+	RUDP::SetSocketNonBlock(_socket);
 
 	_bufferCount = 0;
 	_receivedDataLength = 0;
@@ -59,18 +66,22 @@ RUDPHost::RUDPHost(bool isServer, u_short port)
 RUDPPeer* RUDPHost::Connect(const char* addressIP, u_short port)
 {
 	sockaddr_in address;
+    RUDPAddress rudpAddress;
 
-	ZeroMemory((char*)&address, sizeof(address));
+    memset(&address, 0, sizeof(sockaddr_in));
 
 	address.sin_family = AF_INET;	
 	inet_pton(AF_INET, addressIP, &(address.sin_addr));
 	address.sin_port = htons(7777);
 
-	char host[NI_MAXHOST];
-	char servInfo[NI_MAXSERV];
+    rudpAddress.host = address.sin_addr.s_addr;
+    rudpAddress.port = port;
+
+	char host[256];
+	char servInfo[256];
 	char stringBuffer[128];
 
-	RUDPPeer* peer = new RUDPPeer(this, address);
+	RUDPPeer* peer = new RUDPPeer(this, rudpAddress);
 	_peer = peer;
 
 	srand(time(NULL));
@@ -233,7 +244,7 @@ int RUDPHost::SendOutgoingCommands()
 	int sentLength = 0;
 
 	if (_bufferCount > 0)
-		sentLength = UDPSocket::SocketSend(_socket, _peer->GetAddress(), _buffers, _bufferCount);
+		sentLength = RUDP::SocketSend(_socket, &_peer->GetAddress(), _buffers, _bufferCount);
 
 	for (int i = 0; i < _bufferCount; i++)
 	{
@@ -254,7 +265,7 @@ int RUDPHost::ReceiveIncomingCommands()
 
 	int receivedLength = 0;
 
-	receivedLength = UDPSocket::SocketRecv(_socket, &buffer, 1, _receivedAddress);
+	receivedLength = RUDP::SocketRecv(_socket, &buffer, 1, &_receivedAddress);
 
 	if (receivedLength < 0)
 		return -1;
@@ -264,8 +275,8 @@ int RUDPHost::ReceiveIncomingCommands()
 
 #ifdef RUDP_DEBUG
 	char stringBuffer[128];
-	inet_ntop(AF_INET, &_receivedAddress.sin_addr, stringBuffer, 128);
-	std::cout << "We received a packet from: " << stringBuffer << ":" << ntohs(_receivedAddress.sin_port) << " length is: " << receivedLength << std::endl;
+	// inet_ntop(AF_INET, &_receivedAddress.host, stringBuffer, 128);
+	// std::cout << "We received a packet from: " << stringBuffer << ":" << ntohs(_receivedAddress.sin_port) << " length is: " << receivedLength << std::endl;
 #endif
 
 	_receivedData = _packetData[0];
@@ -386,8 +397,8 @@ int RUDPHost::HandleVerifyConnect(RUDPCommand* command)
 	_peer->SetState(RUDP_PEER_STATE_CONNECTED);
 
 	char stringBuffer[128];
-	inet_ntop(AF_INET, &_peer->GetAddress().sin_addr, stringBuffer, 128);
-	std::cout << "A connection established with peer: " << stringBuffer << ":" << ntohs(_receivedAddress.sin_port) << std::endl;
+	inet_ntop(AF_INET, &_peer->GetAddress().host, stringBuffer, 128);
+	std::cout << "A connection established with peer: " << stringBuffer << ":" << ntohs(_receivedAddress.port) << std::endl;
 
 	return 0;
 }
@@ -481,11 +492,11 @@ int RUDPHost::HandleAcknowledgement(RUDPCommand* command)
 
 int RUDPHost::HostService(size_t timeOut)
 {
-	DWORD startingTime = timeGetTime();
+	uint32_t startingTime = RUDP::GetTime();
 
 	do
 	{
-		_serviceTime = (size_t) timeGetTime();
+		_serviceTime = RUDP::GetTime();
 
 		switch (SendOutgoingCommands())
 		{
@@ -495,7 +506,7 @@ int RUDPHost::HostService(size_t timeOut)
 			break;
 		}
 
-		_serviceTime = (size_t) timeGetTime();
+		_serviceTime = RUDP::GetTime();
 
 		switch (ReceiveIncomingCommands())
 		{

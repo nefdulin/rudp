@@ -1,29 +1,14 @@
 #include <iostream>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
 #include <RUDPHost.h>
 #include <RUDPPeer.h>
 #include <csignal>
 
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "Winmm.lib")
 
 #define BUF_LEN 1024
 
 int main()
 {
-	sockaddr_in otherAddr;
-	int s, slen = sizeof(otherAddr);
-	char buf[BUF_LEN] = { 0 };
-	char message[512] = { 0 };
-	char addressBuffer[64] = { 0 };
-	WSADATA wsa;
-
-	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
-	{
-		std::cout << "Failed initializing " << WSAGetLastError() << std::endl;
-		return 1;
-	}
+    RUDP::Initialize();
 
 	RUDPHost* host = new RUDPHost(0, 0);
 
@@ -84,6 +69,6 @@ int main()
 	//}
 
 	//closesocket(s);
-	WSACleanup();
+	RUDP::Deinitialize();
 	return 0;
 }

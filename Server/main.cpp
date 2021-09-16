@@ -1,31 +1,28 @@
 #include <iostream>
+#ifdef _WIN32
 #include <WinSock2.h>
 #include <WS2tcpip.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
 #include "RUDPHost.h"
 #include "RUDPProtocol.h"
-
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "Winmm.lib")
 
 #define BUF_LEN 1024
 
 int main()
 {
-	SOCKET serverSocket;
+	RUDPSocket serverSocket;
+	RUDPAddress serverAddr, otherAddr;
 
-	sockaddr_in serverAddr, otherAddr;
+    RUDP::Initialize();
+
 	int slen, recv_len;
 	char buf[BUF_LEN] = { 0 };
 	char addressBuffer[64] = { 0 };
-	WSADATA wsa;
 
 	slen = sizeof(otherAddr);
-
-	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
-	{
-		std::cout << "Failed initializing WinSock... " << WSAGetLastError() << std::endl;
-		return 1;
-	}
 
 	RUDPHost* host = new RUDPHost(true, 7777);
 
@@ -35,7 +32,7 @@ int main()
 	}
 
 	//closesocket(serverSocket);
-	WSACleanup();
+    RUDP::Deinitialize();
 
 	return 0;
 }

@@ -1,9 +1,8 @@
 #pragma once
 
 #include <iostream>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
 #include <vector>
+#include "RUDP.h"
 #include "RUDPProtocol.h"
 #include "RUDPPeer.h"
 #include "RUDPPacket.h"
@@ -16,9 +15,9 @@ public:
 	RUDPPeer* Connect(const char* addressIP, u_short port);
 	int SendPacket(RUDPPacket* packet);
 	int HostService(size_t timeOut);
-	const SOCKET& GetSocket() { return _socket; }
+	const RUDPSocket& GetSocket() { return _socket; }
 	const RUDPPeer* GetPeer() { return _peer; }
-	const u_short GetPort() { return ntohs(_address.sin_port); }
+	const u_short GetPort() { return _address.port; }
 
 private:
 	int SendOutgoingCommands();
@@ -37,9 +36,9 @@ private:
 	RUDPAcknowledgement* QueueAcknowledgment(RUDPCommand* command, u_short sentTime);
 
 private:
-	SOCKET _socket;
-	sockaddr_in _address;
-	sockaddr_in _receivedAddress;
+	RUDPSocket _socket;
+	RUDPAddress _address;
+	RUDPAddress _receivedAddress;
 	RUDPPeer* _peer;
 
 	size_t _serviceTime;
